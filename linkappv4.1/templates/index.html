@@ -13,17 +13,15 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            flex-direction: column;
             min-height: 100vh;
         }
-        .container, .results {
+        .container {
             background-color: white;
             padding: 2rem;
             border-radius: 10px;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
             max-width: 600px;
             width: 100%;
-            margin-top: 20px;
         }
         h1, h2 {
             color: #333;
@@ -38,11 +36,13 @@
             margin-bottom: 0.5rem;
             color: #555;
         }
-        textarea {
+        textarea, input[type="number"] {
             margin-bottom: 1rem;
             padding: 0.5rem;
             border: 1px solid #ccc;
             border-radius: 4px;
+        }
+        textarea {
             resize: vertical;
             min-height: 100px;
         }
@@ -59,46 +59,85 @@
         button:hover {
             background-color: #45a049;
         }
-        .results div {
-            margin-top: 10px;
+        #results {
+            margin-top: 2rem;
+            display: none;
         }
-        .download-link {
-            margin-top: 20px;
-            text-align: center;
+        #results table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        #results th, #results td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        #results th {
+            background-color: #f2f2f2;
         }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>URL Checker</h1>
-        <form action="/check_links" method="post">
+        <form id="urlForm">
             <label for="urls">Enter URLs (one per line):</label>
             <textarea id="urls" name="urls" rows="10" required></textarea>
+            <label for="min_chars">Minimum characters for significant content:</label>
+            <input type="number" id="min_chars" name="min_chars" value="300" min="1" required>
             <button type="submit">Check Links</button>
         </form>
-    </div>
-    <div class="results" style="display: none;">
-        <h2>Results</h2>
-        <div>Total URLs Analyzed: <span id="total_urls"></span></div>
-        <div>Total Valid Links: <span id="valid_links"></span></div>
-        <div>Total Invalid Links: <span id="invalid_links"></span></div>
-        <div>Total Links with Insignificant Content: <span id="insignificant_content"></span></div>
-        <div class="download-link">
-            <a href="/check_links" target="_blank">Download CSV</a>
+        <div id="results">
+            <h2>Results</h2>
+            <table id="summaryTable"></table>
         </div>
     </div>
+
     <script>
-        const form = document.querySelector('form');
-        form.addEventListener('submit', function(event) {
-            event.preventDefault();
-            const formData = new FormData(form);
+        document.getElementById('urlForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const formData = new FormData(this);
             fetch('/check_links', {
                 method: 'POST',
-                body: formData,
-                headers: {
-                    'Accept': 'application/json'
-                }
-            }).then(response => response.json())
+                body: formData
+            })
+            .then(response => response.json())
             .then(data => {
-                document.querySelector('.results').style.display = 'block';
-                document.getElem
+                displayResults(data.summary);
+                downloadCSV(data.csv);
+            })
+            .catch(error => console.error('Error:', error));
+        });
+
+        function displayResults(summary) {
+            const resultsDiv = document.getElementById('results');
+            const summaryTable = document.getElementById('summaryTable');
+            summaryTable.innerHTML = '';
+
+            for (const [key, value] of Object.entries(summary)) {
+                const row = summaryTable.insertRow();
+                const keyCell = row.insertCell(0);
+                const valueCell = row.insertCell(1);
+                keyCell.textContent = key;
+                valueCell.textContent = value;
+            }
+
+            resultsDiv.style.display = 'block';
+        }
+
+        function downloadCSV(csvContent) {
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            if (link.download !== undefined) {
+                const url = URL.createObjectURL(blob);
+                link.setAttribute("href", url);
+                link.setAttribute("download", "links_analysis.csv");
+                link.style.visibility = 'hidden';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            }
+        }
+    </script>
+</body>
+</html>
